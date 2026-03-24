@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "근무시간 계산기",
+  "version": "1.0.0",
+  "description": "네이버 웍스 근무통계에서 실제 일평균 필요 근무시간을 계산합니다",
+  "permissions": ["activeTab", "storage"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://home.worksmobile.com/*",
+        "https://workplace.worksmobile.com/*"
+      ],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

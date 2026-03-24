@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 메인 카드 -->
+    <div id="main" class="hidden">
+      <h1 id="month-title" class="month-title"></h1>
+
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">의무 근로시간</span>
+          <span class="stat-value" id="required-hours">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">누적 근무시간</span>
+          <span class="stat-value" id="accumulated-hours">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">남은 근무시간</span>
+          <span class="stat-value" id="remaining-hours">—</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">남은 근무일</span>
+          <span class="stat-value" id="remaining-days">—</span>
+        </div>
+      </div>
+
+      <div class="highlight-card">
+        <span class="highlight-label">일평균 필요 근무시간</span>
+        <span class="highlight-value" id="daily-average">—</span>
+      </div>
+
+      <label class="toggle-row">
+        <input type="checkbox" id="exclude-friday">
+        <span>금요일 재택(8h 고정) 제외</span>
+      </label>
+
+      <button id="settings-toggle" class="settings-btn">설정</button>
+
+      <!-- 설정 영역 -->
+      <div id="settings" class="hidden">
+        <h2 class="settings-title">수동 공휴일 관리</h2>
+        <div class="add-holiday-row">
+          <input type="date" id="holiday-input">
+          <button id="add-holiday-btn">추가</button>
+        </div>
+        <ul id="custom-holidays-list" class="holidays-list"></ul>
+      </div>
+    </div>
+
+    <!-- 에러 상태 -->
+    <div id="error" class="hidden">
+      <p class="error-text">네이버 웍스 홈에서 열어주세요</p>
+      <a
+        href="https://home.worksmobile.com/"
+        target="_blank"
+        rel="noopener"
+        class="error-link"
+      >네이버 웍스 홈으로 이동</a>
+    </div>
+
+    <!-- 로딩 -->
+    <div id="loading">
+      <p class="loading-text">데이터를 불러오는 중...</p>
+    </div>
+  </div>
+
+  <script src="../lib/calculator.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
