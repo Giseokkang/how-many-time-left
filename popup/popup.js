@@ -107,6 +107,9 @@ function render(data) {
   const avgHM = Cal.minutesToHM(info.dailyAverageMinutes);
   $('#daily-average').textContent = `${avgHM.hours}h ${avgHM.minutes}m`;
 
+  // 퇴근 시간 렌더링
+  renderLeaveTime(data.checkInTime, info.dailyAverageMinutes, info.remainingDays);
+
   // 상태 전환
   $('#loading').classList.add('hidden');
   $('#error').classList.add('hidden');
@@ -157,6 +160,51 @@ function onDeleteHoliday(dateStr) {
   state.customHolidays = state.customHolidays.filter((d) => d !== dateStr);
   chrome.storage.local.set({ customHolidays: state.customHolidays });
   if (state._lastData) render(state._lastData);
+}
+
+// --- 퇴근 시간 ---
+
+function renderLeaveTime(checkInTime, dailyAverageMinutes, remainingDays) {
+  const card = $('#leave-time-card');
+  const label = $('#leave-time-label');
+  const value = $('#leave-time-value');
+
+  // 초기화
+  card.classList.remove('can-leave', 'no-checkin', 'hidden');
+
+  // 남은 근무일 0일 → 숨김
+  if (remainingDays <= 0) {
+    card.classList.add('hidden');
+    return;
+  }
+
+  if (!checkInTime) {
+    card.classList.add('no-checkin');
+    label.textContent = '';
+    value.textContent = '출근 기록이 없습니다';
+    return;
+  }
+
+  const checkInMinutes = Cal.parseHoursMinutes(checkInTime);
+  if (checkInMinutes === null) {
+    card.classList.add('no-checkin');
+    label.textContent = '';
+    value.textContent = '출근 기록이 없습니다';
+    return;
+  }
+
+  const result = Cal.calcEstimatedLeaveTime(checkInMinutes, dailyAverageMinutes);
+  const hm = Cal.minutesToHM(result.leaveTimeMinutes);
+  const timeStr = `${String(hm.hours).padStart(2, '0')}:${String(hm.minutes).padStart(2, '0')}`;
+
+  if (result.canLeaveNow) {
+    card.classList.add('can-leave');
+    label.textContent = '';
+    value.textContent = '지금 퇴근 가능!';
+  } else {
+    label.textContent = '오늘 퇴근 가능';
+    value.textContent = timeStr;
+  }
 }
 
 // --- 헬퍼 ---

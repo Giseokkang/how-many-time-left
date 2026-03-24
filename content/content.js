@@ -64,6 +64,12 @@
     return null;
   }
 
+  /** 출근 시간 "HH:MM" 추출 — "출퇴근" 위젯에서 "출근 HH:MM" 패턴 */
+  function scrapeCheckInTime() {
+    const result = scrapeNearLabel('출근', /(\d{1,2}):(\d{2})/g, 0);
+    return result; // "09:53" 또는 null
+  }
+
   /** 현재 조회 연월 추출 */
   function scrapeYearMonth() {
     const body = document.body.textContent;
@@ -93,6 +99,7 @@
         success: accumulated !== null,
         accumulated,
         remainingDays,
+        checkInTime: scrapeCheckInTime(),
         year: yearMonth.year,
         month: yearMonth.month,
       });

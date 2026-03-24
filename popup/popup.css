@@ -79,6 +79,51 @@ body {
   color: #1a73e8;
 }
 
+/* 퇴근 시간 카드 */
+.leave-time-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #f0faf0;
+  border-radius: 10px;
+  border: 1px solid #c5e8c5;
+}
+
+.leave-time-label {
+  font-size: 12px;
+  color: #2e7d32;
+  margin-bottom: 4px;
+}
+
+.leave-time-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1b5e20;
+}
+
+/* 지금 퇴근 가능 상태 */
+.leave-time-card.can-leave {
+  background: #e8f5e9;
+  border-color: #81c784;
+}
+
+/* 출근 기록 없음 상태 */
+.leave-time-card.no-checkin {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+}
+
+.leave-time-card.no-checkin .leave-time-label {
+  color: #999;
+}
+
+.leave-time-card.no-checkin .leave-time-value {
+  font-size: 14px;
+  color: #999;
+}
+
 /* 토글 */
 .toggle-row {
   display: flex;
