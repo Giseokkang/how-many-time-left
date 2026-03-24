@@ -64,7 +64,7 @@ async function fetchAndRender() {
 // --- 렌더링 ---
 
 function render(data) {
-  const { accumulated, year, month } = data;
+  const { accumulated, remainingDays: pageRemainingDays, year, month } = data;
 
   const accMinutes = Cal.parseHoursMinutes(accumulated);
   if (accMinutes === null) {
@@ -84,6 +84,7 @@ function render(data) {
   const info = Cal.calcRemainingInfo({
     accumulatedMinutes: accMinutes,
     requiredHours,
+    pageRemainingDays: pageRemainingDays ?? null,
     today,
     weekdays,
     holidays: monthHolidays,

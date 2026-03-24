@@ -3,14 +3,20 @@
  * 대상: home.worksmobile.com, workplace.worksmobile.com
  *
  * 홈 화면 "나의 근로 시간" 위젯 구조:
- *   - "산정 기간 내 누적 시간" 라벨 인접에 "114:09" 형태의 누적 시간
- *   - "2026.03.23 월" 형태의 날짜 텍스트
+ *   - "일평균 잔여 시간" 라벨 인접에 "17:36 / 5일" (남은 일수)
+ *   - "산정 기간 내 누적 시간" 라벨 인접에 "114:09 / 218:24" (누적 시간)
+ *   - "2026.03.24 화" 형태의 날짜 텍스트
  */
 
 (() => {
-  /** 페이지 텍스트에서 누적 근무시간 "HH:MM" 패턴 추출 */
-  function scrapeAccumulatedTime() {
-    // 전략 1: "산정 기간 내 누적 시간" 라벨 기반 탐색
+  /**
+   * 특정 라벨 텍스트를 포함하는 요소의 인접 영역에서 패턴 추출
+   * @param {string} label - 찾을 라벨 텍스트
+   * @param {RegExp} pattern - 추출할 정규식 (g 플래그 사용)
+   * @param {number} [matchIndex=0] - 여러 매치 중 사용할 인덱스
+   * @returns {string|null}
+   */
+  function scrapeNearLabel(label, pattern, matchIndex = 0) {
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT,
@@ -19,50 +25,59 @@
 
     let node;
     while ((node = walker.nextNode())) {
-      if (node.textContent.includes('산정 기간 내 누적 시간')) {
-        // 라벨을 포함하는 위젯/섹션 영역에서 HH:MM 패턴 찾기
+      if (node.textContent.includes(label)) {
         let container = node.parentElement;
-        // 상위로 올라가며 충분한 영역을 찾는다 (최대 5단계)
         for (let i = 0; i < 5 && container; i++) {
-          const text = container.textContent;
-          // 누적 시간 패턴: "114:09" (1~4자리:2자리)
-          const matches = text.match(/(\d{1,4}):(\d{2})/g);
-          if (matches && matches.length > 0) {
-            // 첫 번째 매치가 누적 시간 (보통 "누적시간 / 총필요시간" 순서)
-            return matches[0];
+          const matches = container.textContent.match(pattern);
+          if (matches && matches.length > matchIndex) {
+            return matches[matchIndex];
           }
           container = container.parentElement;
         }
       }
     }
+    return null;
+  }
 
-    // 전략 2: 볼드/강조 요소에서 HH:MM 패턴 찾기
+  /** 누적 근무시간 "HH:MM" 추출 */
+  function scrapeAccumulatedTime() {
+    // "산정 기간 내 누적 시간" 라벨 근처에서 첫 번째 HH:MM
+    const result = scrapeNearLabel('산정 기간 내 누적 시간', /(\d{1,4}):(\d{2})/g, 0);
+    if (result) return result;
+
+    // 폴백: 볼드/강조 요소에서 HH:MM 패턴
     const selectors = 'strong, b, [class*="time"], [class*="hour"], [class*="bold"], [class*="num"]';
     for (const el of document.querySelectorAll(selectors)) {
       const match = el.textContent.trim().match(/^(\d{1,4}):(\d{2})$/);
       if (match) return match[0];
     }
-
     return null;
   }
 
-  /** 페이지에서 현재 조회 연월 추출 */
+  /** 남은 근무일 수 추출 — "일평균 잔여 시간" 영역에서 "N일" 패턴 */
+  function scrapeRemainingDays() {
+    const result = scrapeNearLabel('일평균 잔여 시간', /(\d{1,2})일/g, 0);
+    if (result) {
+      const match = result.match(/(\d{1,2})/);
+      return match ? parseInt(match[1], 10) : null;
+    }
+    return null;
+  }
+
+  /** 현재 조회 연월 추출 */
   function scrapeYearMonth() {
     const body = document.body.textContent;
 
-    // "2026.03.23" 패턴
     let match = body.match(/(\d{4})\.(\d{1,2})\.\d{1,2}/);
     if (match) {
       return { year: parseInt(match[1], 10), month: parseInt(match[2], 10) };
     }
 
-    // "2026년 3월" 패턴
     match = body.match(/(\d{4})년\s*(\d{1,2})월/);
     if (match) {
       return { year: parseInt(match[1], 10), month: parseInt(match[2], 10) };
     }
 
-    // 폴백: 현재 날짜 기준
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
   }
@@ -71,15 +86,17 @@
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === 'SCRAPE_WORK_DATA') {
       const accumulated = scrapeAccumulatedTime();
+      const remainingDays = scrapeRemainingDays();
       const yearMonth = scrapeYearMonth();
 
       sendResponse({
         success: accumulated !== null,
         accumulated,
+        remainingDays,
         year: yearMonth.year,
         month: yearMonth.month,
       });
     }
-    return true; // 비동기 응답을 위해
+    return true;
   });
 })();
