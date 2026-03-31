@@ -81,10 +81,16 @@ function render(data) {
 
   const today = Cal.formatDate(new Date());
 
+  // 출근 후 네이버 웍스가 남은 일수를 1 줄이므로, 출근 상태면 +1 보정
+  const adjustedRemainingDays =
+    pageRemainingDays != null && data.checkInTime
+      ? pageRemainingDays + 1
+      : pageRemainingDays ?? null;
+
   const info = Cal.calcRemainingInfo({
     accumulatedMinutes: accMinutes,
     requiredHours,
-    pageRemainingDays: pageRemainingDays ?? null,
+    pageRemainingDays: adjustedRemainingDays,
     today,
     weekdays,
     holidays: monthHolidays,
