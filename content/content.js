@@ -70,6 +70,12 @@
     return result; // "09:53" 또는 null
   }
 
+  /** 퇴근 시간 "HH:MM" 추출 — "퇴근 HH:MM" 패턴 (시계 타이머 18:18:55 제외) */
+  function scrapeCheckOutTime() {
+    const match = document.body.textContent.match(/퇴근\s*(\d{1,2}:\d{2})(?!:\d)/);
+    return match ? match[1] : null;
+  }
+
   /** 현재 연월 — 브라우저 시각 기준 */
   function scrapeYearMonth() {
     const now = new Date();
@@ -88,6 +94,7 @@
         accumulated,
         remainingDays,
         checkInTime: scrapeCheckInTime(),
+        checkOutTime: scrapeCheckOutTime(),
         year: yearMonth.year,
         month: yearMonth.month,
       });

@@ -64,7 +64,7 @@ async function fetchAndRender() {
 // --- 렌더링 ---
 
 function render(data) {
-  const { accumulated, remainingDays: pageRemainingDays, year, month } = data;
+  const { accumulated, remainingDays: pageRemainingDays, year, month, checkInTime, checkOutTime } = data;
 
   const accMinutes = Cal.parseHoursMinutes(accumulated);
   if (accMinutes === null) {
@@ -83,7 +83,7 @@ function render(data) {
 
   // 출근 후 네이버 웍스가 남은 일수를 1 줄이므로, 출근 상태면 +1 보정
   const adjustedRemainingDays =
-    pageRemainingDays != null && data.checkInTime
+    pageRemainingDays != null && checkInTime
       ? pageRemainingDays + 1
       : pageRemainingDays ?? null;
 
@@ -95,6 +95,7 @@ function render(data) {
     weekdays,
     holidays: monthHolidays,
     excludeFriday: state.excludeFriday,
+    todayDone: !!checkOutTime,
   });
 
   // UI 업데이트
@@ -114,7 +115,7 @@ function render(data) {
   $('#daily-average').textContent = `${avgHM.hours}h ${avgHM.minutes}m`;
 
   // 퇴근 시간 렌더링
-  renderLeaveTime(data.checkInTime, info.dailyAverageMinutes, info.remainingDays);
+  renderLeaveTime(checkInTime, info.dailyAverageMinutes, info.remainingDays, checkOutTime);
 
   // 상태 전환
   $('#loading').classList.add('hidden');
@@ -170,13 +171,21 @@ function onDeleteHoliday(dateStr) {
 
 // --- 퇴근 시간 ---
 
-function renderLeaveTime(checkInTime, dailyAverageMinutes, remainingDays) {
+function renderLeaveTime(checkInTime, dailyAverageMinutes, remainingDays, checkOutTime) {
   const card = $('#leave-time-card');
   const label = $('#leave-time-label');
   const value = $('#leave-time-value');
 
   // 초기화
   card.classList.remove('can-leave', 'no-checkin', 'hidden');
+
+  // 퇴근 완료 → 퇴근 시간 표시
+  if (checkOutTime) {
+    card.classList.add('can-leave');
+    label.textContent = '퇴근 완료';
+    value.textContent = checkOutTime;
+    return;
+  }
 
   // 남은 근무일 0일 → 숨김
   if (remainingDays <= 0) {
