@@ -70,20 +70,8 @@
     return result; // "09:53" 또는 null
   }
 
-  /** 현재 조회 연월 추출 */
+  /** 현재 연월 — 브라우저 시각 기준 */
   function scrapeYearMonth() {
-    const body = document.body.textContent;
-
-    let match = body.match(/(\d{4})\.(\d{1,2})\.\d{1,2}/);
-    if (match) {
-      return { year: parseInt(match[1], 10), month: parseInt(match[2], 10) };
-    }
-
-    match = body.match(/(\d{4})년\s*(\d{1,2})월/);
-    if (match) {
-      return { year: parseInt(match[1], 10), month: parseInt(match[2], 10) };
-    }
-
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
   }
