@@ -14,6 +14,7 @@
         <div class="stat-item">
           <span class="stat-label">의무 근로시간</span>
           <span class="stat-value" id="required-hours">—</span>
+          <span class="stat-sublabel hidden" id="required-hours-sub"></span>
         </div>
         <div class="stat-item">
           <span class="stat-label">누적 근무시간</span>
@@ -49,6 +50,13 @@
 
       <!-- 설정 영역 -->
       <div id="settings" class="hidden">
+        <h2 class="settings-title">이 달 휴가</h2>
+        <div class="vacation-row">
+          <input type="number" id="vacation-days" min="0" step="0.25" placeholder="0">
+          <span class="vacation-unit">일</span>
+          <span class="vacation-hint">2시간 = 0.25일</span>
+        </div>
+
         <h2 class="settings-title">수동 공휴일 관리</h2>
         <div class="add-holiday-row">
           <input type="date" id="holiday-input">

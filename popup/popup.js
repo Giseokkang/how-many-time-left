@@ -9,7 +9,13 @@ let holidays2026 = {};
 let state = {
   excludeFriday: true,
   customHolidays: [],
+  vacationDays: 0,
 };
+
+function currentYm() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 // --- 초기화 ---
 
@@ -23,16 +29,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 저장된 설정 로드
-  const stored = await chrome.storage.local.get(['excludeFriday', 'customHolidays']);
+  const stored = await chrome.storage.local.get([
+    'excludeFriday',
+    'customHolidays',
+    'vacation',
+  ]);
   state.excludeFriday = stored.excludeFriday ?? true;
   state.customHolidays = stored.customHolidays ?? [];
 
+  // 휴가: 현재 연-월과 일치할 때만 반영
+  const vacation = stored.vacation;
+  state.vacationDays =
+    vacation && vacation.ym === currentYm() ? Number(vacation.days) || 0 : 0;
+
   $('#exclude-friday').checked = state.excludeFriday;
+  $('#vacation-days').value = state.vacationDays > 0 ? state.vacationDays : '';
 
   // 이벤트 바인딩
   $('#exclude-friday').addEventListener('change', onToggleFriday);
   $('#settings-toggle').addEventListener('click', onToggleSettings);
   $('#add-holiday-btn').addEventListener('click', onAddHoliday);
+  $('#vacation-days').addEventListener('input', onChangeVacation);
 
   // 데이터 가져오기
   await fetchAndRender();
@@ -77,7 +94,14 @@ function render(data) {
 
   const weekdays = Cal.getWeekdaysInMonth(year, month);
   const monthHolidays = Cal.getHolidaysInMonth(mergedHolidays, year, month);
-  const requiredHours = Cal.calcRequiredHours(weekdays, monthHolidays);
+  const baseRequiredHours = Cal.calcRequiredHours(weekdays, monthHolidays);
+
+  // 휴가: 스크래핑한 연-월과 현재 저장된 연-월이 같을 때만 반영
+  const scrapedYm = `${year}-${String(month).padStart(2, '0')}`;
+  const applicableVacationDays =
+    scrapedYm === currentYm() ? state.vacationDays : 0;
+  const vacationHours = applicableVacationDays * 8;
+  const requiredHours = Math.max(0, baseRequiredHours - vacationHours);
 
   const today = Cal.formatDate(new Date());
 
@@ -102,6 +126,14 @@ function render(data) {
   $('#month-title').textContent = `${year}년 ${month}월`;
 
   $('#required-hours').textContent = `${requiredHours}h`;
+
+  const sub = $('#required-hours-sub');
+  if (applicableVacationDays > 0) {
+    sub.textContent = `(휴가 -${vacationHours}h 반영)`;
+    sub.classList.remove('hidden');
+  } else {
+    sub.classList.add('hidden');
+  }
 
   const accHM = Cal.minutesToHM(accMinutes);
   $('#accumulated-hours').textContent = `${accHM.hours}h ${accHM.minutes}m`;
@@ -166,6 +198,16 @@ function onAddHoliday() {
 function onDeleteHoliday(dateStr) {
   state.customHolidays = state.customHolidays.filter((d) => d !== dateStr);
   chrome.storage.local.set({ customHolidays: state.customHolidays });
+  if (state._lastData) render(state._lastData);
+}
+
+function onChangeVacation(e) {
+  const raw = parseFloat(e.target.value);
+  const days = Number.isFinite(raw) && raw > 0 ? Math.max(0, raw) : 0;
+  state.vacationDays = days;
+  chrome.storage.local.set({
+    vacation: { ym: currentYm(), days },
+  });
   if (state._lastData) render(state._lastData);
 }
 
