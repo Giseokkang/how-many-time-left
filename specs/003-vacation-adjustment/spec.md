@@ -1,19 +1,21 @@
-# spec: 휴가 시간 반영
+# spec: 휴가 날짜 반영
 
 ## 메타
 - id: 003
 - 작성일: 2026-07-22
 - 상태: draft
-- 관련 기획: 001-work-hours-calculator 확장 (휴가일 의무 근로시간 차감)
+- 관련 기획: 001-work-hours-calculator 확장 (휴가일 남은 근무 계산 보정)
 
 ---
 
 ## 목적
 
-네이버 웍스 정책상 휴가일은 "근무한 것"으로 처리되지만, 실제 누적 근무시간에는 휴가 발생 시점에야 반영된다.
-현재 로직은 `requiredHours = (평일 - 공휴일) × 8` 로 계산하므로, 미래에 사용 예정인 휴가일이 여전히 의무 시간에 포함되어 남은 시간과 일평균이 실제보다 크게 잡힌다.
+네이버 웍스는 등록된 휴가일을 **누적 근무시간에 +8h 자동 크레딧** 을 부여한다 (미래 휴가도 즉시 반영). 반면 `남은 근무일` 카운트에서 휴가일이 제외되는지는 신뢰할 수 없어, 실질적으로 아래 두 가지 왜곡이 발생한다:
 
-이 달 사용한/사용 예정인 휴가 시간을 사용자가 직접 입력하면 의무 근로시간에서 차감해서, 일평균 필요 시간을 정확하게 보여준다.
+1. **금요일 재택 제외 옵션과 충돌**: 휴가일이 금요일이면 "금요일 재택 8h 크레딧" 이 중복 적용돼 남은 시간이 8h 과잉 차감됨
+2. **남은 근무일 과잉 카운트**: 페이지가 휴가일을 여전히 근무일로 카운트하면, 일평균 분모가 부풀려짐 (일평균이 실제보다 낮게 표시)
+
+사용자가 이 달에 등록한 휴가 **날짜** 를 직접 입력해서 두 문제를 동시에 보정한다.
 
 ---
 
@@ -22,105 +24,116 @@
 ### 입력
 | 필드 | 타입 | 소스 | 확인 | 규칙 |
 |------|------|------|:----:|------|
-| 이 달 휴가 일수 | number (0.25 스텝) | 사용자 직접 입력 (팝업 설정) | [x] | 0 ~ 31, 0.25일 = 2h 단위. 예: 0.25, 0.5, 1, 1.25 |
-| 저장 키 연-월 | "YYYY-MM" | 저장 시 현재 연-월 기록 | [x] | 현재 연-월과 다르면 값 무시 (0 취급) |
+| 휴가 날짜 목록 | string[] ("YYYY-MM-DD") | 사용자 직접 입력 (팝업 설정, `<input type="date">`) | [x] | chrome.storage 에 배열로 저장. 정렬 유지, 중복 방지 |
 
 ### 출력
-- 성공: `requiredHours` 가 `(휴가 일수 × 8)` 만큼 차감된 상태로 계산 → 일평균/남은 시간 정확화
-- 입력 없음(0): 기존 동작 유지
-- 월 전환: 이전 달 값 자동 무시 (0 으로 렌더)
+- 휴가일이 `calcWorkdays` 에서 제외 → 금요일 카운트에서 자동 제외
+- 페이지의 `남은 근무일` 값에서 미래 휴가 일수만큼 차감
+- 결과: 남은 시간 / 남은 일수 / 일평균이 실제와 일치
 
 ---
 
 ## 계산 로직
 
+`Cal.calcRemainingInfo` 에 `vacationDates: string[]` 파라미터 추가:
+
 ```
-adjustedRequiredHours = baseRequiredHours - (vacationDays × 8)
+holidaySet ∪ vacationSet 로 calcWorkdays 필터 강화
+  → 금요일 카운트에서 휴가일 자동 제외
 
-- baseRequiredHours: 기존 (평일 - 공휴일) × 8
-- vacationDays: 현재 연-월과 매칭될 때만 반영, 아니면 0
-- adjustedRequiredHours 는 음수가 되지 않도록 Math.max(0, ...) 처리
+futureVacationCount = vacationDates.filter(d >= today).length
+totalRemainingDays = pageRemainingDays != null
+  ? max(0, pageRemainingDays - futureVacationCount)
+  : calcWorkdays.length
 ```
 
-의무 근로시간 UI 표시는 차감된 값(`adjustedRequiredHours`)을 보여준다.
+**required 는 건드리지 않는다** — 페이지 정책상 휴가일이 워크데이로 카운트되고, 페이지 누적에도 +8h 크레딧이 이미 반영되어 있으므로 자연 상쇄.
 
-### 예시 (2026-07 기준)
+### 예시 (2026-07, 오늘 7/22, 7/31 휴가)
 
-| 평일 | 공휴일 | 휴가(일) | base | 차감 | 표시 |
-|------|--------|:-------:|:----:|:---:|:----:|
-| 23 | 0 | 0 | 184h | 0 | 184h |
-| 23 | 0 | 1 | 184h | 8h | 176h |
-| 23 | 0 | 0.5 | 184h | 4h | 180h |
-| 23 | 0 | 0.25 | 184h | 2h | 182h |
+| 지표 | 페이지 | 계산 (금요일 제외 ON) |
+|------|--------|--------------------|
+| required | — | 184h (calendar) |
+| accumulated | 116h 52m (7/31 8h 포함) | 그대로 사용 |
+| 미래 휴가 | — | 1일 (7/31) |
+| pageRemainingDays | 8 | 8 - 1 = 7 |
+| calcWorkdays (7/31 제외) | — | 7일 (7/22~30 평일) |
+| fridayCount | — | 1 (7/24 만, 7/31 은 휴가로 제외) |
+| remaining_hours | — | 184 - 116.87 - 8 = 59.13h |
+| remaining_days | — | 7 - 1 = 6 |
+| 일평균 | — | **9h 51m/day** |
+
+### 예시 (7/29 수요일 휴가 케이스)
+
+- fridayCount = 2 (7/24, 7/31 그대로) → friday_hours = 16h
+- pageRemainingDays 8 - 1 = 7
+- remaining_days = 7 - 2 = 5
+- remaining_hours = 184 - 116.87 - 16 = 51.13h
+- 일평균 = 51.13 / 5 = **10h 14m/day**
 
 ---
 
 ## 엣지케이스
 
-- [x] 입력값 0 또는 미입력 → 기존 동작 그대로 (차감 없음)
-- [x] 월 전환 (7월 → 8월) → 저장된 연-월이 다르면 자동으로 0 취급, 사용자가 새로 입력해야 함
-- [x] 음수/유효하지 않은 값 → input 의 min/step 으로 UI 차단, 저장 시 clamp
-- [x] 휴가 일수가 워크데이 수보다 큰 경우 → `adjustedRequiredHours` 를 0 으로 clamp (에러 표시 X)
-- [x] 0.25 스텝 외 값 (예: 0.3) → step=0.25 로 브라우저가 보정, 저장 시 반올림
-- [ ] 다음 달로 넘어가서 팝업 열었을 때 → 이전 달 값이 화면에 보이지 않고 빈 값(0)으로 리셋되어야 함
+- [x] 휴가일이 금요일 → 자동으로 fridayCount 에서 제외
+- [x] 휴가일이 평일 (금요일 아님) → fridayCount 영향 없음, 남은 일수만 -1
+- [x] 오늘 이전 휴가일 → 누적에는 이미 반영됨, `futureVacationCount` 에서 제외되어 남은 일수 무영향 (calcWorkdays 필터는 today 이후만 대상이라 자연 처리)
+- [x] 휴가일이 다른 달 → 월 필터로 무시 (`monthVacations` 만 넘김)
+- [x] 페이지 남은 일수 < 휴가 수 → `Math.max(0, ...)` 로 음수 방지
+- [ ] 같은 날짜 중복 추가 → 기존 수동 공휴일 로직처럼 `.includes()` 로 차단
+- [ ] 휴가일이 공휴일과 겹침 → 자연스럽게 vacationSet ∪ holidaySet 이므로 이중 제외 없음
 
 ---
 
 ## UI 변경
 
-### 팝업 설정 영역 (기존 "수동 공휴일 관리" 위)
+### 팝업 설정 영역
+
+기존 "수동 공휴일 관리" **위에** 동일 패턴의 "이 달 휴가" 섹션 추가:
 
 ```
 설정
-├─ [신규] 이 달 휴가
-│   [ 1.5 ] 일  (0.25 스텝, min 0)
-│   ※ 2시간 = 0.25일
+├─ 이 달 휴가
+│   [ YYYY-MM-DD ▼ ] [추가]
+│   • 2026-07-31   [삭제]
 │
 └─ 수동 공휴일 관리 (기존)
+    [ YYYY-MM-DD ▼ ] [추가]
+    ...
 ```
 
-- 입력 즉시 저장 및 재계산 (holiday-input 과 동일 패턴)
-- 라벨: "이 달 휴가"
-- input: `type="number"`, `min="0"`, `step="0.25"`, `placeholder="0"`
-
-### 메인 카드
-
-- 의무 근로시간 값은 **차감 후** 값으로 표시 (예: 184h → 176h)
-- 휴가 일수 > 0 일 때만 값 아래에 서브라벨 `(휴가 -Xh 반영)` 을 작게 표기
-- 휴가 = 0 이면 서브라벨 미표시 (기존 UI 유지)
+- 저장: `chrome.storage.local.vacations = ["YYYY-MM-DD", ...]`
+- 스타일: 기존 `.add-holiday-row`, `.holidays-list` 재사용
 
 ---
 
 ## 제약사항
 - 사용할 라이브러리/컴포넌트: 기존 코드만 확장 (새 파일 없음)
 - Out of Scope:
-  - 휴가 날짜별 관리 (7/31 은 반차, 8/1 은 종일 같은 개별 등록)
-  - 반차/시간단위 휴가 UI (그냥 일수로 통합)
-  - 다월 이력 저장 (현재 달만)
+  - 반차/시간 단위 휴가 (하루 단위만)
+  - 다월 저장 (모든 달의 휴가를 배열에 함께 저장, 월별 필터링으로 처리)
   - 네이버 웍스 페이지에서 휴가 자동 감지
 
 ---
 
 ## 기술적 리스크
 
-- [x] chrome.storage.local 키 구조 — 기존 `customHolidays`, `excludeFriday` 옆에 `vacation` 객체(`{ ym: "YYYY-MM", days: number }`) 추가. 충돌 없음
-- [x] `requiredHours` 계산 위치 — `popup.js` 의 `render()` 에서 `Cal.calcRequiredHours()` 결과를 받은 직후 차감. `calculator.js` 시그니처 변경 불필요
-- [ ] 월 전환 UX — 사용자가 8월 첫 접속 시 필드가 비어 있는 것이 자연스러운지 확인 필요 (draft 단계 이슈)
+- [x] `calcRemainingInfo` 시그니처 변경 — `vacationDates` 옵션 파라미터로 하위 호환 유지
+- [x] chrome.storage 키 `vacations` — 기존 `customHolidays`, `excludeFriday` 와 충돌 없음
+- [x] 페이지의 `일평균 잔여 시간 N일` 이 휴가일을 포함하는지 확실치 않음 — 이미지로 검증 결과 **포함** 하는 것으로 판단 (6일 = 8 - 2 fridays)
 
 ---
 
 ## 구현 태스크
-- [ ] T001 popup.html — 설정 영역에 휴가 입력 필드 추가 (`#vacation-days`) + 의무 근로시간 서브라벨 마크업
-- [ ] T002 popup.css — 휴가 입력 행 스타일 + `.stat-sublabel` 스타일
-- [ ] T003 popup.js — chrome.storage 로드 시 연-월 비교 후 `state.vacationDays` 세팅
-- [ ] T004 popup.js — `render()` 내부에서 `requiredHours -= vacationDays × 8` (음수 clamp), 서브라벨 렌더
-- [ ] T005 popup.js — 입력 이벤트 바인딩 (input 이벤트, 즉시 저장 및 재렌더)
-- [ ] T006 수동 테스트 — 2026-07 에 1일 입력 → 의무시간 -8h, 서브라벨 표시, 일평균 재계산 확인
+- [x] T001 calculator.js — `calcRemainingInfo` 에 `vacationDates` 파라미터 추가, `calcWorkdays` 필터와 `pageRemainingDays` 조정
+- [x] T002 popup.html — 설정 영역에 휴가 날짜 리스트 UI 추가, 의무 근로시간 서브라벨 제거
+- [x] T003 popup.css — 이전 v1.2.0 의 `.vacation-row`, `.stat-sublabel` 제거 (재사용 스타일만 유지)
+- [x] T004 popup.js — `state.vacations` 관리, 로드/저장, 추가/삭제 핸들러, 월 필터링 후 `calcRemainingInfo` 에 전달
+- [ ] T005 수동 테스트 — 7/31 추가 시 일평균 ≈ 9h 51m, 다른 요일 (예: 7/29) 추가 시 예상대로 재계산되는지 확인
 
 ---
 
 ## 확인 필요
-- [x] 입력 단위 = 일(0.25 스텝) → **확정**
-- [x] 월 전환 시 자동 0 리셋 → **확정**
-- [x] UI 위치 = 기존 설정 영역 → **확정**
-- [x] 의무 근로시간 표시 = 차감 후 값 + 휴가>0 시 서브라벨 `(휴가 -Xh 반영)` → **확정**
+- [x] 입력 단위 = 날짜 리스트 → **확정**
+- [x] required 는 건드리지 않음 (페이지 누적 크레딧과 상쇄) → **확정**
+- [x] 페이지 남은 일수가 휴가 포함 여부 → 이미지 근거로 **포함** → 코드에서 차감
