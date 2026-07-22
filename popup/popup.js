@@ -248,8 +248,8 @@ function renderLeaveTime(checkInTime, dailyAverageMinutes, remainingDays, checkO
 
   if (result.canLeaveNow) {
     card.classList.add('can-leave');
-    label.textContent = '';
-    value.textContent = '지금 퇴근 가능!';
+    label.textContent = '지금 퇴근 가능';
+    value.textContent = timeStr;
   } else {
     label.textContent = '오늘 퇴근 가능';
     value.textContent = timeStr;
