@@ -181,6 +181,13 @@ body {
   font-size: 13px;
 }
 
+.add-holiday-row select {
+  padding: 6px 4px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
 .add-holiday-row button {
   padding: 6px 12px;
   background: #4285f4;
