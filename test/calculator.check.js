@@ -48,4 +48,11 @@ assert.strictEqual(r.remainingDays, 4);
 r = Cal.calcRemainingInfo({ ...base, vacations: [{ date: '2026-10-22', hours: 2 }] });
 assert.strictEqual(r.dailyAverageMinutes, (33 * 60 + 46) / 4);
 
+// 퇴근 시간: 4h 이상이면 출근 시각 무관하게 휴게 1h (HRM 확인: 13시 출근 6h → 20시)
+const leave = (checkIn, work) => Cal.calcEstimatedLeaveTime(checkIn * 60, work * 60).leaveTimeMinutes / 60;
+assert.strictEqual(leave(12, 6), 19);
+assert.strictEqual(leave(13, 6), 20);
+assert.strictEqual(leave(9, 8), 18);
+assert.strictEqual(leave(13, 3), 16); // 4h 미만은 휴게 없음
+
 console.log('ok');
