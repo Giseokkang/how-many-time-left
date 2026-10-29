@@ -79,6 +79,12 @@ body {
   color: #1a73e8;
 }
 
+.highlight-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #4285f4;
+}
+
 /* 퇴근 시간 카드 */
 .leave-time-card {
   display: flex;
