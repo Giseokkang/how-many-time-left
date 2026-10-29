@@ -129,6 +129,16 @@ function render(data) {
   const avgHM = Cal.minutesToHM(info.dailyAverageMinutes);
   $('#daily-average').textContent = `${avgHM.hours}h ${avgHM.minutes}m`;
 
+  // 오늘 부분 휴가 → 실근무 시간 별도 표시
+  const todayWork = $('#today-work');
+  const vacMin = info.todayVacationMinutes;
+  todayWork.classList.toggle('hidden', !vacMin);
+  if (vacMin) {
+    const workHM = Cal.minutesToHM(Math.max(0, info.dailyAverageMinutes - vacMin));
+    const label = vacMin === 120 ? '반반차' : '반차';
+    todayWork.textContent = `오늘 실근무 ${workHM.hours}h ${workHM.minutes}m (${label} ${vacMin / 60}h 제외)`;
+  }
+
   // 퇴근 시간 렌더링
   renderLeaveTime(
     checkInTime,
