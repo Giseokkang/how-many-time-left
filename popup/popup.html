@@ -52,6 +52,11 @@
         <h2 class="settings-title">이 달 휴가</h2>
         <div class="add-holiday-row">
           <input type="date" id="vacation-input">
+          <select id="vacation-hours">
+            <option value="2">2h 반반차</option>
+            <option value="4">4h 반차</option>
+            <option value="8" selected>8h 연차</option>
+          </select>
           <button id="add-vacation-btn">추가</button>
         </div>
         <ul id="vacations-list" class="holidays-list"></ul>

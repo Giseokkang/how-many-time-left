@@ -31,7 +31,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   ]);
   state.excludeFriday = stored.excludeFriday ?? true;
   state.customHolidays = stored.customHolidays ?? [];
-  state.vacations = Array.isArray(stored.vacations) ? stored.vacations : [];
+  // 003 포맷(string[]) → { date, hours: 8 } 마이그레이션
+  state.vacations = (Array.isArray(stored.vacations) ? stored.vacations : []).map((v) =>
+    typeof v === 'string' ? { date: v, hours: 8 } : v
+  );
 
   $('#exclude-friday').checked = state.excludeFriday;
 
@@ -88,7 +91,7 @@ function render(data) {
 
   // 현재 월에 속하는 휴가 날짜만 필터
   const scrapedYm = `${year}-${String(month).padStart(2, '0')}`;
-  const monthVacations = state.vacations.filter((d) => d.startsWith(scrapedYm));
+  const monthVacations = state.vacations.filter((v) => v.date.startsWith(scrapedYm));
 
   const today = Cal.formatDate(new Date());
 
@@ -105,7 +108,7 @@ function render(data) {
     today,
     weekdays,
     holidays: monthHolidays,
-    vacationDates: monthVacations,
+    vacations: monthVacations,
     excludeFriday: state.excludeFriday,
     todayDone: !!checkOutTime,
   });
@@ -127,7 +130,12 @@ function render(data) {
   $('#daily-average').textContent = `${avgHM.hours}h ${avgHM.minutes}m`;
 
   // 퇴근 시간 렌더링
-  renderLeaveTime(checkInTime, info.dailyAverageMinutes, info.remainingDays, checkOutTime);
+  renderLeaveTime(
+    checkInTime,
+    info.dailyAverageMinutes - info.todayVacationMinutes,
+    info.remainingDays,
+    checkOutTime
+  );
 
   // 상태 전환
   $('#loading').classList.add('hidden');
@@ -187,10 +195,12 @@ function onAddVacation() {
   const dateStr = input.value;
   if (!dateStr) return;
 
-  if (state.vacations.includes(dateStr)) return;
+  const hours = Number($('#vacation-hours').value);
 
-  state.vacations.push(dateStr);
-  state.vacations.sort();
+  // 같은 날짜는 시간만 덮어쓰기
+  state.vacations = state.vacations.filter((v) => v.date !== dateStr);
+  state.vacations.push({ date: dateStr, hours });
+  state.vacations.sort((a, b) => a.date.localeCompare(b.date));
   chrome.storage.local.set({ vacations: state.vacations });
 
   input.value = '';
@@ -198,7 +208,7 @@ function onAddVacation() {
 }
 
 function onDeleteVacation(dateStr) {
-  state.vacations = state.vacations.filter((d) => d !== dateStr);
+  state.vacations = state.vacations.filter((v) => v.date !== dateStr);
   chrome.storage.local.set({ vacations: state.vacations });
   if (state._lastData) render(state._lastData);
 }
@@ -293,16 +303,16 @@ function renderVacations() {
   const list = $('#vacations-list');
   list.replaceChildren();
 
-  for (const dateStr of state.vacations) {
+  for (const { date, hours } of state.vacations) {
     const li = document.createElement('li');
 
     const span = document.createElement('span');
-    span.textContent = dateStr;
+    span.textContent = `${date} · ${hours}h`;
 
     const btn = document.createElement('button');
     btn.className = 'delete-btn';
     btn.textContent = '삭제';
-    btn.addEventListener('click', () => onDeleteVacation(dateStr));
+    btn.addEventListener('click', () => onDeleteVacation(date));
 
     li.appendChild(span);
     li.appendChild(btn);
